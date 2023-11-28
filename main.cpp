@@ -1,50 +1,22 @@
-#include <stdlib.h>
-#include <assert.h>
+#include <malloc.h>
+#include <cassert>
 #include <stdio.h>
 #include <sys/time.h>
-#include <x86intrin.h>
 
-#include "main.h"
+#include "main.hpp"
+#include "traversal.hpp"
 
 Node* graph;
-Stack traversalStack;
 
-__attribute__((always_inline))
-char nodeIsVisited(Node* node) {
-    return node->header == VISITED;
-}
-
-__attribute__((always_inline))
-void stackPush(Node* node) {
-    assert(traversalStack.sp < TRAVERSAL_STACK_SIZE);
-
-    traversalStack.buffer[traversalStack.sp] = node;
-    traversalStack.sp++;
-}
-
-__attribute__((always_inline))
-Node* stackPop() {
-    assert(traversalStack.sp > 0);
-
-    return traversalStack.buffer[--traversalStack.sp];
-}
-
-__attribute__((always_inline))
-char stackIsEmpty() {
-    return traversalStack.sp == 0;
-}
+unsigned long long edge_counter;
 
 Node * allocateSpaceForGraph() {
     return (Node*) calloc(NODES_N, sizeof(Node));
 }
 
 void setRandomEdges() {
-    int rootCounter = 0;
-
     for (int i = 0; i < NODES_N; i++) {
         assert(graph[i].header == NOT_VISITED);
-
-        unsigned char isRoot = ((unsigned int) rand()) % 2;
 
         for (int j = 0; j < REFS_IN_NODE; j++) {
             char isNull = ((unsigned int) rand()) % SPARCITY_PARAM != 0;
@@ -56,29 +28,7 @@ void setRandomEdges() {
             int idx = NODES_N;
             Node* child = &graph[rand() % idx];
             (&graph[i])->refs[j] = child;
-        }
-
-        if (isRoot && rootCounter < ROOTS_N) {
-            graph[i].header = VISITED;
-            stackPush(&graph[i]);
-            rootCounter++;
-        }
-    }
-}
-
-void dfs() {
-    while (!stackIsEmpty()) {
-        Node* parent = stackPop();
-
-        assert(nodeIsVisited(parent));
-
-        for (int i = 0; i < REFS_IN_NODE; i++) {
-            Node* child = parent->refs[i];
-
-            if (child != NULL && !nodeIsVisited(child)) {
-                child->header = VISITED;
-                stackPush(child);
-            }
+            edge_counter++;
         }
     }
 }
@@ -107,21 +57,27 @@ long long currentTimeMillis() {
 void init() {
     srand(SEED);
     graph = allocateSpaceForGraph();
-    assert(traversalStack.sp == 0);
+    
 }
 
 int main(int argc, char ** argv) {
-    printf("Initalization...\n");
-    printf("Number of nodes: %llu\n", NODES_N);
+    Traversal* traversal_algo = new PrefetchBufferOnPop();
+
+    printf("\nInitalization...\n");
     init();
 
     printf("Setting edges...\n");
     setRandomEdges();
+    printf("Number of nodes: %llu\n", NODES_N);
+    printf("Number of edges: %llu\n", edge_counter);
 
-    printf("DFS started\n");
+    printf("Collecting roots...\n");
+    traversal_algo->collectRoots(graph);
+
+    printf("\nDFS started\n");
     
     long long startTime = currentTimeMillis();
-    dfs();
+    traversal_algo->traverseGraph();
     long long endTime   = currentTimeMillis();
 
     printf("DFS ended\n");
@@ -130,6 +86,7 @@ int main(int argc, char ** argv) {
 
     printf("\n==============\n");
     printf("Total visited (Nodes): %d\n", totalVisited);
+    printf("Total visited (%%): %f\n", totalVisited / ((double) (NODES_N)) * 100);
     printf("Total visited (Mb): %lld\n", ((long long) sizeof(Node) * totalVisited / 1024 / 1024)); // used for seed tuning
     printf("Traversal time: %lld\n", endTime - startTime);
 

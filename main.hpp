@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #include "params.h"
 
 #define VISITED 1
@@ -13,12 +15,3 @@ typedef struct Node {
 #define NODES_N GRAPH_SIZE_GB * 1024 * 1024 * 1024 / sizeof(Node)
 
 char nodeIsVisited(Node* node);
-
-typedef struct Stack {
-    int sp;
-    Node* buffer[NODES_N];
-} Stack;
-
-void stackPush(Node* node);
-Node* stackPop();
-char stackIsEmpty();
